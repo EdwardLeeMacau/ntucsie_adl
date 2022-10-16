@@ -1,3 +1,4 @@
+import csv
 import json
 import pickle
 from argparse import ArgumentParser, Namespace
@@ -5,6 +6,8 @@ from pathlib import Path
 from typing import Dict
 
 import torch
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from dataset import SeqClsDataset
 from model import SeqClassifier
@@ -20,10 +23,11 @@ def main(args):
 
     data = json.loads(args.test_file.read_text())
     dataset = SeqClsDataset(data, vocab, intent2idx, args.max_len)
-    # TODO: crecate DataLoader for test dataset
+    dataloader: DataLoader = DataLoader(
+        dataset, batch_size=1, collate_fn=dataset.test_collate_fn, num_workers=8,
+    )
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
-
     model = SeqClassifier(
         embeddings,
         args.hidden_size,
@@ -36,10 +40,17 @@ def main(args):
 
     ckpt = torch.load(args.ckpt_path)
     # load weights into model
+    model.load_state_dict(ckpt)
+    model.to(args.device)
 
-    # TODO: predict dataset
-
-    # TODO: write prediction to file (args.pred_file)
+    # predict dataset
+    with open(args.pred_file, "w") as f:
+        writer = csv.writer(f)
+        writer.writerow(['id', 'intent'])
+        for x in tqdm(dataloader):
+            x['token'] = x['token'].to(args.device)
+            y = torch.argmax(model(x), dim=1)[0].cpu().tolist()
+            writer.writerow([x['id'][0], dataset.idx2label(y)])
 
 
 def parse_args() -> Namespace:
@@ -69,7 +80,7 @@ def parse_args() -> Namespace:
 
     # model
     parser.add_argument("--hidden_size", type=int, default=512)
-    parser.add_argument("--num_layers", type=int, default=2)
+    parser.add_argument("--num_layers", type=int, default=3)
     parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--bidirectional", type=bool, default=True)
 

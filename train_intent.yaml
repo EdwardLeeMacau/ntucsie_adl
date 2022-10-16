@@ -1,0 +1,12 @@
+model:
+- hidden_size: 512
+- num_layers: 3
+- dropout: 0.1
+- bidirectional: True
+
+train:
+- optimizer: 'Adam'
+- lr: 1e-4
+- max_len: 128
+- batch_size: 2048
+- num_epoch: 100

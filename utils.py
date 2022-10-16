@@ -25,6 +25,7 @@ class Vocab:
         return list(self.token2idx.keys())
 
     def token_to_id(self, token: str) -> int:
+        """ Query index of string. If not covered by vocabs, return 1 """
         return self.token2idx.get(token, self.unk_id)
 
     def encode(self, tokens: List[str]) -> List[int]:

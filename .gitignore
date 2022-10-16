@@ -1,0 +1,15 @@
+# Pretrained model / Word embedding
+glove.840B.300d.txt
+glove.840B.300d.zip
+
+# Checkpoints
+*.pt
+
+# Preprocessed inputs
+cache/
+
+# Python Intermediate
+__pycache__
+
+# Editor Intermediate
+*.swp
