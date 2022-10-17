@@ -5,6 +5,7 @@ import random
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict
+from distutils.util import strtobool
 
 import numpy as np
 import torch
@@ -25,7 +26,13 @@ random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 
-def main(args):
+def main(args: Namespace):
+    param = {
+        key: value for key, value in vars(args).items() if not isinstance(value, (Path, torch.device))
+    }
+    with open(args.ckpt_dir / "param.json", "w") as f:
+        json.dump(param, f)
+
     with open(args.cache_dir / "vocab.pkl", "rb") as f:
         vocab: Vocab = pickle.load(f)
 
@@ -62,13 +69,15 @@ def main(args):
 
     criteria = torch.nn.CrossEntropyLoss(reduction='sum')
 
+    metrics = { 'epochs': [], 'train_acc': [], 'train_loss': [], 'val_acc': [], 'val_loss': [] }
     best = 0
-    for epoch in range(args.num_epoch):
+    for epoch in range(1, args.num_epoch + 1):
+        # Initialize metrics
+        metrics["epochs"].append(epoch)
+
         # Training loop
         model.train()
-        with tqdm(dataloaders[TRAIN], desc=f"Train: {epoch+1:3d}/{args.num_epoch:3d}") as pbar:
-            train_acc = 0
-            count = 0
+        with tqdm(dataloaders[TRAIN], desc=f"Train: {epoch:3d}/{args.num_epoch:3d}") as pbar:
             for data in pbar:
                 x, y = data
                 n = y.shape[0]
@@ -82,20 +91,19 @@ def main(args):
                 loss = criteria(predict, y)
                 loss.backward()
 
-                train_acc = torch.sum(torch.argmax(predict, dim=1) == y) / n
-
                 optimizer.step()
 
-                pbar.set_postfix(loss=f"{loss.item() / n:.6f}", acc=f"{train_acc:.2%}")
+                acc = (torch.sum(torch.argmax(predict, dim=1) == y) / n).item()
+                pbar.set_postfix(loss=f"{loss.item() / n:.6f}", acc=f"{acc:.2%}")
+
+            metrics["train_loss"].append(loss.item())
 
         scheduler.step()
 
         # Evaluation loop
         model.eval()
         with torch.no_grad():
-            dev_loss = 0
-            dev_acc = 0
-            count = 0
+            dev_loss, dev_acc, count = 0, 0, 0
             with tqdm(dataloaders[DEV], desc="Validation: ") as pbar:
                 for data in pbar:
                     x, y = data
@@ -107,9 +115,18 @@ def main(args):
                     predict = model(x)
                     loss = criteria(predict, y)
                     dev_loss += loss.item()
-                    dev_acc += torch.sum(torch.argmax(predict, dim=1) == y)
+                    dev_acc += torch.sum(torch.argmax(predict, dim=1) == y).item()
 
                     pbar.set_postfix(loss=f"{dev_loss / count:.6f}", acc=f"{dev_acc / count:.2%}")
+
+            dev_loss /= count
+            dev_acc /= count
+
+        metrics["val_loss"].append(dev_loss)
+        metrics["val_acc"].append(dev_acc)
+
+        with open(args.ckpt_dir / "metrics.json", "w") as f:
+            json.dump(metrics, f)
 
         if dev_acc > best:
             best = dev_acc
@@ -142,10 +159,13 @@ def parse_args() -> Namespace:
     parser.add_argument("--max_len", type=int, default=128)
 
     # model
+    # BUG in argparse:
+    # Before Python 3.9, the parser cannot parse strings such as 'False' or '0' to literal False.
+    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
     parser.add_argument("--hidden_size", type=int, default=512)
     parser.add_argument("--num_layers", type=int, default=3)
     parser.add_argument("--dropout", type=float, default=0.1)
-    parser.add_argument("--bidirectional", type=bool, default=True)
+    parser.add_argument("--bidirectional", type=lambda x: bool(strtobool(x)), default=True)
 
     # optimizer
     parser.add_argument("--lr", type=float, default=1e-3)

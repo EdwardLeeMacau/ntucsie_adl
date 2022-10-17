@@ -28,7 +28,13 @@ random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 
-def main(args):
+def main(args: Namespace):
+    param = {
+        key: value for key, value in vars(args).items() if not isinstance(value,(Path, torch.device))
+    }
+    with open(args.ckpt_dir / "param.json", "w") as f:
+        json.dump(param, f)
+
     with open(args.cache_dir / "vocab.pkl", "rb") as f:
         vocab: Vocab = pickle.load(f)
 
@@ -63,10 +69,15 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
-    criteria = FocalLoss(gamma=10, reduction='sum')
+    # criteria = FocalLoss(alpha=1, gamma=10, reduction='sum')
+    criteria = BCELoss(reduction='sum')
 
+    metrics = { 'epochs': [], 'train_acc': [], 'train_loss': [], 'val_acc': [], 'val_loss': [] }
     best = 0
     for epoch in range(args.num_epoch):
+        # Initialize metrics
+        metrics['epochs'].append(epoch)
+
         # Training loop
         model.train()
         with tqdm(dataloaders[TRAIN], desc=f"Train: {epoch+1:3d}/{args.num_epoch:3d}") as pbar:
@@ -96,6 +107,8 @@ def main(args):
 
                 pbar.set_postfix(loss=f"{loss.item() / n:.6f}", token_acc=f"{token_acc:.2%}", joint_acc=f"{joint_acc:.2%}")
 
+            metrics["train_loss"].append(loss.item())
+
         scheduler.step()
 
         # Evaluation loop
@@ -122,9 +135,12 @@ def main(args):
 
                     correct = (torch.argmax(predict, dim=2) == y)
                     correct[~mask] = True
-                    dev_acc += torch.sum(torch.all(correct, dim=1))
+                    dev_acc += (torch.sum(torch.all(correct, dim=1))).item()
 
                     pbar.set_postfix(loss=f"{dev_loss / tokens_count:.6f}", joint_acc=f"{dev_acc / batches_count:.2%}")
+
+        metrics["val_loss"].append(dev_loss)
+        metrics["val_acc"].append(dev_acc)
 
         if dev_acc > best:
             best = dev_acc
@@ -157,6 +173,9 @@ def parse_args() -> Namespace:
     parser.add_argument("--max_len", type=int, default=128)
 
     # model
+    # BUG in argparse:
+    # Before Python 3.9, the parser cannot parse strings such as 'False' or '0' to literal False.
+    # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
     parser.add_argument("--hidden_size", type=int, default=512)
     parser.add_argument("--num_layers", type=int, default=3)
     parser.add_argument("--dropout", type=float, default=0.1)

@@ -3,48 +3,50 @@
 ## Environment
 
 ```bash
-# If you have conda, we recommend you to build a conda environment called "adl-hw1"
-make
+conda env update --file environment.yml
 conda activate adl-hw1
-pip install -r requirements.txt
-# Otherwise
 pip install -r requirements.in
-```
-
-## Preprocessing
-
-```bash
-# To preprocess intent detection and slot tagging datasets
-bash preprocess.sh
 ```
 
 ## Download Pre-Trained Model
 
 ```bash
 # To download pre-trained models for intent detection and slot tagging
-# The model will be stored in ./ckpt
+# The model will be stored in ./ckpt and ./cache
 bash download.sh
-```
-
-## Model Training
-
-```bash
-# Intent Detection
-python train_intent.py
-```
-
-```bash
-# Slot Tagging
-python train_slot.py
 ```
 
 ## Model Inference
 
 ```bash
+# Intent Classification
 python test_intent.py --ckpt_path ./ckpt/intent/best.pt
 ```
 
 ```bash
 # Slot Tagging
 python test_slot.py --ckpt_path ./ckpt/slot/best.pt
+```
+
+## Model Training
+
+### Preprocessing
+
+```bash
+# To preprocess intent classification and slot tagging datasets
+bash preprocess.sh
+```
+
+### Run Training Script
+
+Notes: Check supported arguments by adding `--help` after the command.
+
+```bash
+# Intent Classification
+python train_intent.py
+```
+
+```bash
+# Slot Tagging
+python train_slot.py
 ```
