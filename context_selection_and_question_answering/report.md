@@ -17,18 +17,27 @@ According to the [document](https://huggingface.co/docs/transformers/v4.24.0/en/
 
 ### Answer Span
 
-Position-on-characters to Position-on-token
+According to the [document](https://huggingface.co/docs/transformers/v4.24.0/en/main_classes/tokenizer#transformers.PreTrainedTokenizer.__call__), `BertTokenizer` returns the mapping between position-on-characters and position-on-token when tokenizing the input sentences.
+Because we are using sub-word tokenizer in this task, one letter might maps to single or multiple tokens.
 
-2b. Post-processing
+I keep using the post-process function `postprocess_qa_predictions()` which is provided in Huggingface's example. After model predicts the probability of answer span start/end position, the candidates are post-processed. The steps are describe as following.
+
+1. Convert the predictions from position-to-tokens to position-to-characters, concatenate sentences if it is truncated before feeding to model.
+2. Filter combinations of start/end logits which does not make scene, keeps the combinations if start index is smaller than the end index.
+3. Calculate the score (score = score of start logits + score of end logits). Then, sort combinations by score with descending order.
+4. Return k-best predictions (k=1 here).
 
 Reference:
-- [ZhiHu - SQuAD Question Answering based on BERT pre-trained model](https://zhuanlan.zhihu.com/p/473157694?utm_id=0)
+- [Medium - Question-Answering in association with RoBERTa](https://medium.com/mlearning-ai/question-answering-in-association-with-roberta-a11518e70507)
+- [Hugging Face 的 Transformers 库快速入门（五）：快速分词器](https://xiaosheng.run/2022/03/08/transformers-note-5.html#1-%E5%BF%AB%E9%80%9F%E5%88%86%E8%AF%8D%E5%99%A8)
 
 ---
 
+<div style='page-break-after:always'></div>
+
 ## Q2: Modeling with BERTs and their variants
 
-The model can be separated as 2 parts, one for multiple choices and another for question answering.
+- Public score (2 highest submissions): 79.475% / 77.124%
 
 - Multiple choice:
   - Pretrained transformer: bert-base-chinese
@@ -58,13 +67,15 @@ The model can be separated as 2 parts, one for multiple choices and another for 
     - type_vocab_size: 2,
     - use_cache: true,
     - vocab_size: 21128
-  - Loss function:
+  - Loss function: Loss function: CrossEntropy (Selecting one of the option from given context)
   - Batch size and optimizer:
     - `Adam(lr=3e-5, weight_decay=0)`
     - Max epoch: 1
     - Batch size: 2
     - Gradient accumulation steps: 4
   - Model accuracy: 95.78%
+
+<div style='page-break-after:always'></div>
 
 - Question Answering:
   - Pretrained transformer: hfl/chinese-roberta-wwm-ext
@@ -97,7 +108,7 @@ The model can be separated as 2 parts, one for multiple choices and another for 
     - type_vocab_size: 2,
     - use_cache: true,
     - vocab_size: 21128
-  - Loss function:
+  - Loss function: CrossEntropy() (Selecting start index and end index of the answer span)
   - Batch size and optimizer:
     - `Adam(lr=3e-5, weight_decay=0)`
     - Max epoch: 15
@@ -105,19 +116,68 @@ The model can be separated as 2 parts, one for multiple choices and another for 
     - Gradient accumulation steps: 8
   - Model accuracy: 81.62%
 
-Because we need to solve 2 problems sequently, the accuracy equal to the multiplication of both models.
-- Evaluation accuracy: 78.18%
-- Public score (2 highest submissions): 79.475% / 77.124%
+<div style='page-break-after:always'></div>
 
-1. Try another type of pretrained model and describe
+I tried using `hfl/chinese-xlnet-base` as my pretrained mode, but it does not beat the model pre-trained by RoBERTa.
+
+- Question Answering:
+  - Pretrained transformer: hfl/chinese-xlnet-base
+  - Model configuration:
+    - attn_type: bi,
+    - bi_data: false,
+    - bos_token_id: 1,
+    - clamp_len: -1,
+    - d_head: 64,
+    - d_inner: 3072,
+    - d_model: 768,
+    - dropout: 0.1,
+    - end_n_top: 5,
+    - eos_token_id: 2,
+    - ff_activation: relu,
+    - initializer_range: 0.02,
+    - layer_norm_eps: 1e-12,
+    - mem_len: null,
+    - model_type: xlnet,
+    - n_head: 12,
+    - n_layer: 12,
+    - output_past: true,
+    - pad_token_id: 5,
+    - reuse_len: null,
+    - same_length: false,
+    - start_n_top: 5,
+    - summary_activation: tanh,
+    - summary_last_dropout: 0.1,
+    - summary_type: last,
+    - summary_use_proj: true,
+    - torch_dtype: float32,
+    - transformers_version: 4.22.2,
+    - untie_r: true,
+    - use_mems_eval: true,
+    - use_mems_train: false,
+    - vocab_size: 32000
+  - Loss function: CrossEntropy()
+  - Batch size and optimizer:
+    - `Adam(lr=3e-5, weight_decay=0)`
+    - Max epoch: 10
+    - Batch size: 8
+    - Gradient accumulation steps: 8
+  - Model accuracy: 75.21%
 
 ---
 
+<div style='page-break-after:always'></div>
+
 ## Q3: Learning curves of QA model
+
+![](./assets/curve.jpeg)
 
 ---
 
 ## Q4: Pretrained v.s. Not Pretrained
+
+I train the BERT from scratch, and the performance is really poor. It achieves only 5.51% accuracy on task of question answering given double training steps. The model configuration is the same as model reported in Q2, GPU memory is not enough, I have cut the batch size as half and doubled the gradient accumulation steps, thus the effective batch size does not changed.
+
+![](./assets/q4.jpeg)
 
 ---
 

@@ -553,7 +553,7 @@ def question_answering_loss(context: List[str], questions: List[Dict], args: arg
     with torch.no_grad():
         for _, batch in enumerate(tqdm(dataloader)):
             outputs = model(**batch)
-            total_loss += outputs.loss.detach().float()
+            total_loss += outputs.loss.item()
 
     return total_loss
 

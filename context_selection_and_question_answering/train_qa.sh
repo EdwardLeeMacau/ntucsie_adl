@@ -23,7 +23,6 @@ python run_qa_no_trainer.py \
   --checkpointing_steps 200 \
   --learning_rate 3e-5 \
   --num_train_epochs 15 \
-  --lr_scheduler_type cosine \
-  --num_warmup_steps 250 \
+  --num_warmup_steps 500 \
   --gradient_accumulation_steps 8
 

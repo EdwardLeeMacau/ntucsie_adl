@@ -19,7 +19,7 @@ $ bash download.sh
 ## Prediction
 
 ```bash
-$ bash run.sh
+$ bash run.sh ${1} ${2} ${3}
 ```
 
 Example:

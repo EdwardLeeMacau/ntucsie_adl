@@ -13,10 +13,10 @@
 # limitations under the License.
 
 python run_swag_no_trainer.py \
-  --model_name_or_path hfl/chinese-roberta-wwm-ext \
+  --model_name_or_path bert-base-chinese \
   --train_file ./cache/train_mc.json \
   --validation_file ./cache/valid_mc.json \
-  --output_dir ./ckpt/multiple_choice/hfl-chinese-roberta-wwm-ext \
+  --output_dir ./ckpt/multiple_choice/bert-base-chinese \
   --pad_to_max_length \
   --seed 0 \
   --with_tracking \
