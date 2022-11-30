@@ -1,0 +1,19 @@
+CUDA_VISIBLE_DEVICES=0 python run_summarization_no_trainer.py \
+    --model_name_or_path google/mt5-small \
+    --num_train_epochs 30 \
+    --learning_rate 2e-4 \
+    --checkpointing_steps 1500 \
+    --max_source_length 256 \
+    --max_target_length 64 \
+    --gradient_accumulation_steps 12 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
+    --train_file $1 \
+    --validation_file $2 \
+    --text_column maintext \
+    --summary_column title \
+    --source_prefix "summarize: " \
+    --seed 0 \
+    --num_beams 5 \
+    --with_tracking \
+    --output_dir ./ckpt/google-mt5-small
